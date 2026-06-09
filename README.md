@@ -1,2 +1,2 @@
-# PasswordGeneration
+# 本プロジェクトについて
 パスワード生成するためのGitHubPages用リポジトリ
