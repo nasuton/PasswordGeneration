@@ -41,6 +41,16 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // タブを閉じる・ページ移動時に確認ダイアログを表示
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   const regenerate = useCallback(
     async (len: number, chars: boolean, mixed: boolean, digits: boolean, symbols: boolean) => {
       setLoading(true);
@@ -58,18 +68,30 @@ function App() {
     []
   );
 
-  // 初回マウント時にAPIからパスワードを取得
-  useEffect(() => {
-    regenerate(16, true, true, true, true);
-  }, [regenerate]);
-
   // 「文字」は他が全て外れるときは強制チェック
   const isCharsLocked = !useMixed && !useDigits && !useSymbols;
 
   const handleLength = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
     setLength(v);
-    regenerate(v, useChars, useMixed, useDigits, useSymbols);
+  };
+
+  const handleLengthInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === '') {
+      setLength(0);
+      return;
+    }
+    const v = Number(raw);
+    if (isNaN(v)) return;
+    const clamped = Math.min(128, Math.max(5, v));
+    setLength(clamped);
+  };
+
+  const handleLengthInputBlur = () => {
+    if (length < 5 || length === 0) {
+      setLength(5);
+    }
   };
 
   const handleChars = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +100,6 @@ function App() {
     const nextMixed = nextChars ? useMixed : false;
     setUseChars(nextChars);
     setUseMixed(nextMixed);
-    regenerate(length, nextChars, nextMixed, useDigits, useSymbols);
   };
 
   const handleMixed = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,7 +107,6 @@ function App() {
     const nextChars = nextMixed ? true : (!useDigits && !useSymbols);
     setUseMixed(nextMixed);
     setUseChars(nextChars);
-    regenerate(length, nextChars, nextMixed, useDigits, useSymbols);
   };
 
   const handleDigits = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,7 +114,6 @@ function App() {
     const nextChars = useChars || (!useMixed && !nextDigits && !useSymbols);
     setUseDigits(nextDigits);
     setUseChars(nextChars);
-    regenerate(length, nextChars, useMixed, nextDigits, useSymbols);
   };
 
   const handleSymbols = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,7 +121,6 @@ function App() {
     const nextChars = useChars || (!useMixed && !useDigits && !nextSymbols);
     setUseSymbols(nextSymbols);
     setUseChars(nextChars);
-    regenerate(length, nextChars, useMixed, useDigits, nextSymbols);
   };
 
   const handleCopy = () => {
@@ -134,15 +152,25 @@ function App() {
 
       {/* 長さスライダー */}
       <div className="pg-section">
-        <label className="pg-label">
-          長さ: <span className="pg-length-value">{length}</span>
-        </label>
+        <div className="pg-length-row">
+          <label className="pg-label">長さ:</label>
+          <input
+            className="pg-length-input"
+            type="number"
+            min={5}
+            max={128}
+            value={length === 0 ? '' : length}
+            onChange={handleLengthInput}
+            onBlur={handleLengthInputBlur}
+            disabled={loading}
+          />
+        </div>
         <input
           className="pg-slider"
           type="range"
           min={5}
           max={128}
-          value={length}
+          value={length || 5}
           onChange={handleLength}
           disabled={loading}
         />
@@ -187,9 +215,24 @@ function App() {
         {loading ? '生成中...' : '再生成'}
       </button>
 
+      {/* サービス説明 */}
+      <div className="pg-description">
+        <p className="pg-description-lead">
+          複雑で安全なパスワードをワンクリックで自動生成
+        </p>
+        <p className="pg-description-body">
+          文字数（5〜128文字）を指定し、「数値」「大文字」「小文字」「記号」の組み合わせ条件をスイッチで手軽に選ぶだけで、辞書攻撃に強い強固でランダムなパスワードを一瞬で生成します
+        </p>
+        <p className="pg-description-body">
+          <span className="pg-description-heading">■ 完全ローカル処理で安心のセキュリティ</span><br />
+          当サイトのオンラインサーバーに生成したパスワード情報が送信・保存されることは一切ないため、安心して各種アカウントのパスワード作成にお役立ていただけます
+        </p>
+      </div>
+
       {/* 技術スタック説明 */}
       <p className="pg-stack-note">
-        フロントエンドには React + GitHub Pages を使用。バックエンドは Go言語 gin フレームワーク +{' '}
+        フロントエンドには React + GitHub Pages を使用<br />
+        バックエンドは Go言語 gin フレームワーク +{' '}
         <a
           className="pg-stack-link"
           href="https://render.com"
@@ -198,23 +241,28 @@ function App() {
         >
           render.com
         </a>{' '}
-        を使用。
+        を使用
       </p>
 
       {/* フッターリンク（FOOTER_LINKS に追記するだけで増やせる） */}
       {FOOTER_LINKS.length > 0 && (
         <footer className="pg-footer">
-          {FOOTER_LINKS.map((link) => (
-            <a
-              key={link.url}
-              className="pg-footer-link"
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {link.label}
-            </a>
-          ))}
+          <span className="pg-footer-title">各種リンク</span>
+          <div className="pg-footer-links">
+            {FOOTER_LINKS.map((link, index) => (
+              <React.Fragment key={link.url}>
+                {index > 0 && <span className="pg-footer-sep">/</span>}
+                <a
+                  className="pg-footer-link"
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {link.label}
+                </a>
+              </React.Fragment>
+            ))}
+          </div>
         </footer>
       )}
     </div>
