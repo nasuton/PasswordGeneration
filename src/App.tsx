@@ -28,6 +28,8 @@ async function fetchPassword(
 const FOOTER_LINKS: { label: string; url: string }[] = [
   { label: 'ナストンのまとめ(技術ブログ)', url: 'https://nasuton.net/blog/' },
   { label: 'About Me', url: 'https://nasuton.github.io/' },
+  { label: 'フロントエンドのソースコード', url: 'https://github.com/nasuton/PasswordGeneration' },
+  { label: 'バックエンドのソースコード', url: 'https://github.com/nasuton/PasswordGeneration_API' }
 ];
 
 function App() {
